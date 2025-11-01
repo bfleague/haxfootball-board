@@ -19,6 +19,7 @@ import {
 import useImage from "use-image";
 import { Download, Plus, Upload } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import type Konva from "konva";
 
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
@@ -168,7 +169,10 @@ function prunePoints(
   const result: Array<{ x: number; y: number }> = [];
   for (const pt of points) {
     const prev = result[result.length - 1];
-    if (!prev || Math.hypot(pt.x - prev.x, pt.y - prev.y) > epsilon) {
+    if (
+      result.length === 0 ||
+      Math.hypot(pt.x - prev.x, pt.y - prev.y) > epsilon
+    ) {
       result.push({ x: pt.x, y: pt.y });
     } else {
       result[result.length - 1] = { x: pt.x, y: pt.y };
@@ -197,7 +201,7 @@ function normalizeArrowColor(color: any): ArrowColor {
 }
 
 function worldFromPointer(
-  stage: import("konva").Stage,
+  stage: Konva.Stage,
   camera: Camera,
   viewport: { w: number; h: number },
 ) {
@@ -300,7 +304,7 @@ function PlayerNode({
       }}
       onTap={() => onSelect(el.id)}
       onDragEnd={(e) => {
-        const node = e.target as import("konva").Node;
+        const node = e.target as Konva.Node;
         const pos = node.position();
         onMove(el.id, pos.x, pos.y);
       }}
@@ -380,7 +384,7 @@ function BallNode({
       }}
       onTap={() => onSelect(el.id)}
       onDragEnd={(e) => {
-        const node = e.target as import("konva").Node;
+        const node = e.target as Konva.Node;
         const pos = node.position();
         onMove(el.id, pos.x, pos.y);
       }}
@@ -450,9 +454,9 @@ function StraightArrowNode({
         onContextMenu={(e) => onContext(e, el.id)}
         draggable
         onDragEnd={(e) => {
-          const node = e.target as import("konva").Node & {
-            x(): number;
-            y(): number;
+          const node = e.target as Konva.Node & {
+            x: () => number;
+            y: () => number;
           };
           const dx = node.x();
           const dy = node.y();
@@ -512,9 +516,9 @@ function CurvedArrowNode({
         onContextMenu={(e) => onContext(e, el.id)}
         draggable
         onDragEnd={(e) => {
-          const node = e.target as import("konva").Node & {
-            x(): number;
-            y(): number;
+          const node = e.target as Konva.Node & {
+            x: () => number;
+            y: () => number;
           };
           const dx = node.x();
           const dy = node.y();
@@ -533,10 +537,7 @@ function CurvedArrowNode({
 export default function HaxFootballBoard() {
   // Viewport size
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const stageRef =
-    useRef<
-      import("react-konva").KonvaNodeComponent<import("konva").Stage, any>
-    >(null);
+  const stageRef = useRef<any>(null);
   const [vp, setVp] = useState<{ w: number; h: number }>({
     w: window.innerWidth,
     h: window.innerHeight,
@@ -857,7 +858,7 @@ export default function HaxFootballBoard() {
       preview.style.left = "-1000px";
       preview.style.pointerEvents = "none";
       document.body.appendChild(preview);
-      event.dataTransfer?.setDragImage(preview, size / 2, size / 2);
+      event.dataTransfer.setDragImage(preview, size / 2, size / 2);
       requestAnimationFrame(() => {
         preview.remove();
       });
@@ -979,8 +980,8 @@ export default function HaxFootballBoard() {
       e.preventDefault();
       const type = e.dataTransfer?.getData("text/plain");
       if (!type) return;
-      const stage = stageRef.current?.getStage();
-      if (!stage) return;
+      const stageInstance = stageRef.current?.getStage();
+      if (!stageInstance) return;
       const rect = container.getBoundingClientRect();
       const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       const worldX = (screen.x - vp.w / 2 - camera.x) / camera.scale;
@@ -1049,8 +1050,8 @@ export default function HaxFootballBoard() {
       } else {
         const minSegment = CURVE_MIN_DRAW_GAP / camera.scale;
         const id = "__preview";
-        const state = drawState.current;
-        const pts = state.points;
+        const drawStateValue = drawState.current;
+        const pts = drawStateValue.points;
         if (pts.length === 1) {
           pts.push(world);
         } else {
@@ -1063,7 +1064,7 @@ export default function HaxFootballBoard() {
             pts[lastIdx] = world;
           }
         }
-        const previewPoints = state.points.map((p) => ({ ...p }));
+        const previewPoints = drawStateValue.points.map((p) => ({ ...p }));
         const preview: ArrowCurveEl = {
           id,
           kind: "arrow-curve",
@@ -1184,9 +1185,16 @@ export default function HaxFootballBoard() {
 
   // Update helpers for context actions
   const updateElement = useCallback(
-    (id: string, patch: Partial<PlayerEl & ArrowStraightEl & ArrowCurveEl>) => {
+    (
+      id: string,
+      patch:
+        | Partial<PlayerEl>
+        | Partial<ArrowStraightEl>
+        | Partial<ArrowCurveEl>
+        | Partial<BallEl>,
+    ) => {
       applyElementsUpdate((els) =>
-        els.map((e) => (e.id === id ? ({ ...e, ...patch } as any) : e)),
+        els.map((e) => (e.id === id ? ({ ...e, ...patch } as El) : e)),
       );
     },
     [applyElementsUpdate],
@@ -1207,11 +1215,11 @@ export default function HaxFootballBoard() {
         return;
       }
       const target = e.target as HTMLElement | null;
-      const tagName = target?.tagName?.toLowerCase();
+      const tagName = target?.tagName.toLowerCase();
       const isEditable =
         tagName === "input" ||
         tagName === "textarea" ||
-        (target as HTMLElement | null)?.isContentEditable;
+        target?.isContentEditable;
       if (!isEditable && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
         if (e.key === "Delete" && selectedId) {
           e.preventDefault();
@@ -1230,8 +1238,8 @@ export default function HaxFootballBoard() {
           "5": 2.5,
         } as const;
         const newScale = (scaleShortcut as any)[e.key];
-        const stage = stageRef.current?.getStage();
-        if (!stage) return;
+        const stageInstance = stageRef.current?.getStage();
+        if (!stageInstance) return;
         const center = { x: vp.w / 2, y: vp.h / 2 };
         setCamera((cam) => cameraZoomTo(cam, center, newScale, vp));
       }
@@ -1379,13 +1387,17 @@ export default function HaxFootballBoard() {
 
       {/* Floating toolbox */}
       <div className="pointer-events-none">
-        <div className="pointer-events-auto fixed top-4 right-4 z-50 flex items-center gap-2">
+        <div
+          className="pointer-events-auto fixed top-4 right-4 z-50 flex
+            items-center gap-2"
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 size="icon"
                 variant="secondary"
-                className="!bg-stone-800 !text-white shadow-lg hover:!bg-stone-700"
+                className="bg-stone-800! text-white! shadow-lg
+                  hover:bg-stone-700!"
                 onClick={() => setExportDialogOpen(true)}
                 aria-label="Export JSON"
               >
@@ -1399,7 +1411,8 @@ export default function HaxFootballBoard() {
               <Button
                 size="icon"
                 variant="secondary"
-                className="!bg-stone-800 !text-white shadow-lg hover:!bg-stone-700"
+                className="bg-stone-800! text-white! shadow-lg
+                  hover:bg-stone-700!"
                 onClick={() => setImportDialogOpen(true)}
                 aria-label="Import JSON"
               >
@@ -1410,48 +1423,72 @@ export default function HaxFootballBoard() {
           </Tooltip>
         </div>
 
-        <div className="pointer-events-auto fixed bottom-6 right-6 z-50 max-w-4xl">
-          <div className="rounded-2xl border border-white/10 bg-neutral-950/90 px-6 py-5 text-white shadow-2xl backdrop-blur-xl">
+        <div
+          className="pointer-events-auto fixed right-6 bottom-6 z-50 max-w-4xl"
+        >
+          <div
+            className="rounded-2xl border border-white/10 bg-neutral-950/90 px-6
+              py-5 text-white shadow-2xl backdrop-blur-xl"
+          >
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-3">
                 <Button
                   variant="secondary"
                   draggable
-                  className="group relative flex h-14 w-14 items-center justify-center rounded-xl border border-white/15 !bg-white/5 !text-white shadow-sm transition hover:!bg-white/12"
+                  className="group relative flex h-14 w-14 items-center
+                    justify-center rounded-xl border border-white/15 bg-white/5!
+                    text-white! shadow-sm transition hover:bg-white/12!"
                   onDragStart={(e) => {
-                    e.dataTransfer?.setData("text/plain", "player");
+                    e.dataTransfer.setData("text/plain", "player");
                     setDragPreview(e, "player");
                   }}
                   onClick={() => handleSpawnClick("player")}
                   aria-label="Add player"
                 >
-                  <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 transition group-hover:opacity-100 group-active:opacity-100" />
+                  <div
+                    className="absolute inset-0 rounded-xl bg-white/5 opacity-0
+                      transition group-hover:opacity-100
+                      group-active:opacity-100"
+                  />
                   <div className="relative flex items-center justify-center">
                     <div
-                      className="absolute rounded-full size-10 border-[3px] border-black/70 shadow-lg "
+                      className="absolute size-10 rounded-full border-[3px]
+                        border-black/70 shadow-lg"
                       style={{ backgroundColor: COLORS.blue }}
                     />
-                    <Plus className="relative z-10 size-4 text-white drop-shadow-md" />
+                    <Plus
+                      className="relative z-10 size-4 text-white drop-shadow-md"
+                    />
                   </div>
                 </Button>
                 <Button
                   variant="secondary"
                   draggable
-                  className="group relative flex h-14 w-14 items-center justify-center rounded-xl border border-white/15 !bg-white/5 !text-white shadow-sm transition hover:!bg-white/12"
+                  className="group relative flex h-14 w-14 items-center
+                    justify-center rounded-xl border border-white/15 bg-white/5!
+                    text-white! shadow-sm transition hover:bg-white/12!"
                   onDragStart={(e) => {
-                    e.dataTransfer?.setData("text/plain", "ball");
+                    e.dataTransfer.setData("text/plain", "ball");
                     setDragPreview(e, "ball");
                   }}
                   onClick={() => handleSpawnClick("ball")}
                   aria-label="Add ball"
                 >
-                  <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 transition group-hover:opacity-100 group-active:opacity-100" />
+                  <div
+                    className="absolute inset-0 rounded-xl bg-white/5 opacity-0
+                      transition group-hover:opacity-100
+                      group-active:opacity-100"
+                  />
                   <div className="relative flex items-center justify-center">
                     <div
-                      className="absolute size-8 rounded-full border-[3px] border-black/70 shadow-lg "
+                      className="absolute size-8 rounded-full border-[3px]
+                        border-black/70 shadow-lg"
                       style={{ backgroundColor: COLORS.brownBall }}
                     />
-                    <Plus className="relative z-10 size-3.5 text-white drop-shadow-md" />
+                    <Plus
+                      className="relative z-10 size-3.5 text-white
+                        drop-shadow-md"
+                    />
                   </div>
                 </Button>
               </div>
@@ -1460,26 +1497,33 @@ export default function HaxFootballBoard() {
                 type="single"
                 value={tool}
                 onValueChange={(v) => v && setTool(v as any)}
-                className="flex rounded-xl border border-white/10 bg-white/5 p-1 text-sm font-medium"
+                className="flex rounded-xl border border-white/10 bg-white/5 p-1
+                  text-sm font-medium"
               >
                 <ToggleGroupItem
                   value="select"
                   aria-label="Select/Move"
-                  className="rounded-lg px-3 py-2 text-white/70 transition data-[state=on]:!bg-cyan-500 data-[state=on]:!text-white data-[state=on]:shadow-lg"
+                  className="rounded-lg px-3 py-2 text-white/70 transition
+                    data-[state=on]:bg-cyan-500! data-[state=on]:text-white!
+                    data-[state=on]:shadow-lg"
                 >
                   Selecionar
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="arrow-straight"
                   aria-label="Straight Arrow"
-                  className="rounded-lg px-3 py-2 text-white/70 transition data-[state=on]:!bg-cyan-500 data-[state=on]:!text-white data-[state=on]:shadow-lg"
+                  className="rounded-lg px-3 py-2 text-white/70 transition
+                    data-[state=on]:bg-cyan-500! data-[state=on]:text-white!
+                    data-[state=on]:shadow-lg"
                 >
                   →
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="arrow-curve"
                   aria-label="Curved Arrow"
-                  className="rounded-lg px-3 py-2 text-white/70 transition data-[state=on]:!bg-cyan-500 data-[state=on]:!text-white data-[state=on]:shadow-lg"
+                  className="rounded-lg px-3 py-2 text-white/70 transition
+                    data-[state=on]:bg-cyan-500! data-[state=on]:text-white!
+                    data-[state=on]:shadow-lg"
                 >
                   ⤳
                 </ToggleGroupItem>
@@ -1489,7 +1533,9 @@ export default function HaxFootballBoard() {
                 pressed={currentDashed}
                 onPressedChange={setCurrentDashed}
                 variant="outline"
-                className="rounded-full border-white/30 px-4 text-sm uppercase tracking-wide text-white/70 transition data-[state=on]:!bg-white/20 data-[state=on]:!text-white"
+                className="rounded-full border-white/30 px-4 text-sm
+                  tracking-wide text-white/70 uppercase transition
+                  data-[state=on]:bg-white/20! data-[state=on]:text-white!"
               >
                 Tracejado
               </Toggle>
@@ -1497,26 +1543,32 @@ export default function HaxFootballBoard() {
 
             <Separator className="my-4 bg-white/10" />
 
-            <div className="flex flex-wrap items-center gap-3 text-sm text-white/80">
+            <div
+              className="flex flex-wrap items-center gap-3 text-sm
+                text-white/80"
+            >
               <Label className="text-white/70">Cor da seta</Label>
               <Toggle
                 pressed={currentArrowColor === "redLine"}
                 onPressedChange={(p) => p && setCurrentArrowColor("redLine")}
-                className="h-8 w-8 rounded-full border border-white/25 transition data-[state=on]:ring-2 data-[state=on]:ring-white"
+                className="h-8 w-8 rounded-full border border-white/25
+                  transition data-[state=on]:ring-2 data-[state=on]:ring-white"
                 style={{ background: COLORS.redLine }}
                 aria-label="Red"
               />
               <Toggle
                 pressed={currentArrowColor === "blueLine"}
                 onPressedChange={(p) => p && setCurrentArrowColor("blueLine")}
-                className="h-8 w-8 rounded-full border border-white/25 transition data-[state=on]:ring-2 data-[state=on]:ring-white"
+                className="h-8 w-8 rounded-full border border-white/25
+                  transition data-[state=on]:ring-2 data-[state=on]:ring-white"
                 style={{ background: COLORS.blueLine }}
                 aria-label="Blue"
               />
               <Toggle
                 pressed={currentArrowColor === "yellow"}
                 onPressedChange={(p) => p && setCurrentArrowColor("yellow")}
-                className="h-8 w-8 rounded-full border border-white/25 transition data-[state=on]:ring-2 data-[state=on]:ring-white"
+                className="h-8 w-8 rounded-full border border-white/25
+                  transition data-[state=on]:ring-2 data-[state=on]:ring-white"
                 style={{ background: COLORS.yellow }}
                 aria-label="Yellow"
               />
@@ -1531,7 +1583,10 @@ export default function HaxFootballBoard() {
           <DialogHeader>
             <DialogTitle>Estado para exportação</DialogTitle>
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-auto rounded bg-neutral-100 p-3 text-xs text-neutral-900">
+          <pre
+            className="max-h-[60vh] overflow-auto rounded bg-neutral-100 p-3
+              text-xs text-neutral-900"
+          >
             {JSON.stringify(state, null, 2)}
           </pre>
           <DialogFooter>
@@ -1556,7 +1611,8 @@ export default function HaxFootballBoard() {
             <DialogTitle>Importar JSON</DialogTitle>
           </DialogHeader>
           <textarea
-            className="min-h-[40vh] w-full resize-y rounded border p-2 text-xs text-neutral-900"
+            className="min-h-[40vh] w-full resize-y rounded border p-2 text-xs
+              text-neutral-900"
             placeholder="Cole o JSON aqui..."
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
@@ -1566,11 +1622,9 @@ export default function HaxFootballBoard() {
               onClick={() => {
                 try {
                   const parsed: BoardState = JSON.parse(importText);
-                  const normalized = normalizeImportedElements(
-                    parsed.elements ?? [],
-                  );
+                  const normalized = normalizeImportedElements(parsed.elements);
                   replaceElements(normalized);
-                  setCamera(parsed.camera ?? { x: 0, y: 0, scale: 1 });
+                  setCamera(parsed.camera);
                   setImportDialogOpen(false);
                 } catch (e) {
                   alert("Invalid JSON");
@@ -1590,13 +1644,18 @@ export default function HaxFootballBoard() {
       {ctxMenu.open && ctxTarget && (
         <div
           ref={ctxRef}
-          className="fixed z-[100] min-w-[248px] rounded-2xl border border-neutral-900  bg-neutral-950/95 p-4 text-sm text-white shadow-[0_22px_55px_rgba(0,0,0,0.65)] backdrop-blur-md"
+          className="fixed z-100 min-w-[248px] rounded-2xl border
+            border-neutral-900 bg-neutral-950/95 p-4 text-sm text-white
+            shadow-[0_22px_55px_rgba(0,0,0,0.65)] backdrop-blur-md"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
           {ctxTarget.kind === "player" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-stone-200/80">
+                <span
+                  className="text-xs font-semibold tracking-[0.3em]
+                    text-stone-200/80 uppercase"
+                >
                   Player
                 </span>
                 {ctxTarget.name && (
@@ -1613,7 +1672,12 @@ export default function HaxFootballBoard() {
                   <div className="mt-2 flex items-center gap-3">
                     <button
                       type="button"
-                      className={`h-6 w-6 rounded-full border transition-all duration-150 ${ctxTarget.color === "blue" ? "border-amber-300 ring-4 ring-amber-300/30" : "border-white/15 hover:border-amber-200/60"}`}
+                      className={`h-6 w-6 rounded-full border transition-all
+                      duration-150 ${
+                        ctxTarget.color === "blue"
+                          ? "border-amber-300 ring-4 ring-amber-300/30"
+                          : "border-white/15 hover:border-amber-200/60"
+                      }`}
                       style={{ background: COLORS.blue }}
                       onClick={() =>
                         updateElement(ctxTarget.id, { color: "blue" })
@@ -1621,7 +1685,12 @@ export default function HaxFootballBoard() {
                     />
                     <button
                       type="button"
-                      className={`h-6 w-6 rounded-full border transition-all duration-150 ${ctxTarget.color === "red" ? "border-amber-300 ring-4 ring-amber-300/30" : "border-white/15 hover:border-amber-200/60"}`}
+                      className={`h-6 w-6 rounded-full border transition-all
+                      duration-150 ${
+                        ctxTarget.color === "red"
+                          ? "border-amber-300 ring-4 ring-amber-300/30"
+                          : "border-white/15 hover:border-amber-200/60"
+                      }`}
                       style={{ background: COLORS.red }}
                       onClick={() =>
                         updateElement(ctxTarget.id, { color: "red" })
@@ -1630,11 +1699,17 @@ export default function HaxFootballBoard() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-[0.2em] text-white/55">
+                  <label
+                    className="text-xs font-medium tracking-[0.2em]
+                      text-white/55 uppercase"
+                  >
                     Avatar
                   </label>
                   <input
-                    className="w-full rounded-lg border border-white/10 bg-neutral-900/60 px-3 py-1 text-sm text-white placeholder:text-white/40 focus:border-amber-400 focus:outline-none"
+                    className="w-full rounded-lg border border-white/10
+                      bg-neutral-900/60 px-3 py-1 text-sm text-white
+                      placeholder:text-white/40 focus:border-amber-400
+                      focus:outline-none"
                     value={ctxTarget.avatar ?? ""}
                     onChange={(e) =>
                       updateElement(ctxTarget.id, {
@@ -1644,11 +1719,17 @@ export default function HaxFootballBoard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-[0.2em] text-white/55">
+                  <label
+                    className="text-xs font-medium tracking-[0.2em]
+                      text-white/55 uppercase"
+                  >
                     Name
                   </label>
                   <input
-                    className="w-full rounded-lg border border-white/10 bg-neutral-900/60 px-3 py-1 text-sm text-white placeholder:text-white/40 focus:border-amber-400 focus:outline-none"
+                    className="w-full rounded-lg border border-white/10
+                      bg-neutral-900/60 px-3 py-1 text-sm text-white
+                      placeholder:text-white/40 focus:border-amber-400
+                      focus:outline-none"
                     value={ctxTarget.name ?? ""}
                     onChange={(e) =>
                       updateElement(ctxTarget.id, { name: e.target.value })
@@ -1660,7 +1741,10 @@ export default function HaxFootballBoard() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="!bg-gradient-to-r !from-rose-600 !to-red-500 !text-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wide shadow-lg shadow-rose-900/60 transition hover:from-rose-500 hover:to-red-400"
+                  className="bg-linear-to-r! from-rose-600! to-red-500! px-4
+                    py-1.5 text-xs font-semibold tracking-wide text-white!
+                    uppercase shadow-lg shadow-rose-900/60 transition
+                    hover:from-rose-500 hover:to-red-400"
                   onClick={() => {
                     deleteElement(ctxTarget.id);
                     closeCtx();
@@ -1675,7 +1759,10 @@ export default function HaxFootballBoard() {
           {ctxTarget.kind === "ball" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-stone-200/80">
+                <span
+                  className="text-xs font-semibold tracking-[0.3em]
+                    text-stone-200/80 uppercase"
+                >
                   Ball
                 </span>
               </div>
@@ -1683,7 +1770,10 @@ export default function HaxFootballBoard() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="!bg-gradient-to-r !from-rose-600 !to-red-500 !text-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wide shadow-lg shadow-rose-900/60 transition hover:from-rose-500 hover:to-red-400"
+                  className="bg-linear-to-r! from-rose-600! to-red-500! px-4
+                    py-1.5 text-xs font-semibold tracking-wide text-white!
+                    uppercase shadow-lg shadow-rose-900/60 transition
+                    hover:from-rose-500 hover:to-red-400"
                   onClick={() => {
                     deleteElement(ctxTarget.id);
                     closeCtx();
@@ -1699,7 +1789,10 @@ export default function HaxFootballBoard() {
             ctxTarget.kind === "arrow-curve") && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-stone-200/80">
+                <span
+                  className="text-xs font-semibold tracking-[0.3em]
+                    text-stone-200/80 uppercase"
+                >
                   Arrow
                 </span>
               </div>
@@ -1714,7 +1807,12 @@ export default function HaxFootballBoard() {
                         <button
                           type="button"
                           key={c}
-                          className={`h-6 w-6 rounded-full border transition-all duration-150 ${ctxTarget.color === c ? "border-amber-300 ring-4 ring-amber-300/30" : "border-white/15 hover:border-amber-200/60"}`}
+                          className={`h-6 w-6 rounded-full border transition-all
+                          duration-150 ${
+                            ctxTarget.color === c
+                              ? "border-amber-300 ring-4 ring-amber-300/30"
+                              : "border-white/15 hover:border-amber-200/60"
+                          }`}
                           style={{ background: COLORS[c] }}
                           onClick={() =>
                             updateElement(ctxTarget.id, { color: c })
@@ -1724,8 +1822,14 @@ export default function HaxFootballBoard() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-white/10 bg-neutral-900/50 px-3 py-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/55">
+                <div
+                  className="flex items-center justify-between rounded-lg border
+                    border-white/10 bg-neutral-900/50 px-3 py-2"
+                >
+                  <span
+                    className="text-xs font-medium tracking-[0.2em]
+                      text-white/55 uppercase"
+                  >
                     Tracejado
                   </span>
                   <input
@@ -1742,7 +1846,10 @@ export default function HaxFootballBoard() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="!bg-gradient-to-r !from-rose-600 !to-red-500 !text-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wide shadow-lg shadow-rose-900/60 transition hover:from-rose-500 hover:to-red-400"
+                  className="bg-linear-to-r! from-rose-600! to-red-500! px-4
+                    py-1.5 text-xs font-semibold tracking-wide text-white!
+                    uppercase shadow-lg shadow-rose-900/60 transition
+                    hover:from-rose-500 hover:to-red-400"
                   onClick={() => {
                     deleteElement(ctxTarget.id);
                     closeCtx();
