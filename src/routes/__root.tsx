@@ -1,7 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -19,6 +18,7 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      { rel: "icon", href: "/logo.png" },
       {
         rel: "stylesheet",
         href: appCss,

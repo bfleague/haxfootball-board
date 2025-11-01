@@ -17,7 +17,7 @@ import {
   Text,
 } from "react-konva";
 import useImage from "use-image";
-import { Download, Upload } from "lucide-react";
+import { Download, Plus, Upload } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 
 import { Button } from "@/components/ui/button";
@@ -1392,7 +1392,7 @@ export default function HaxFootballBoard() {
                 <Download className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent sideOffset={8}>Export JSON</TooltipContent>
+            <TooltipContent sideOffset={8}>Exportar</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1406,37 +1406,53 @@ export default function HaxFootballBoard() {
                 <Upload className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent sideOffset={8}>Import JSON</TooltipContent>
+            <TooltipContent sideOffset={8}>Importar</TooltipContent>
           </Tooltip>
         </div>
 
         <div className="pointer-events-auto fixed bottom-6 right-6 z-50 max-w-4xl">
           <div className="rounded-2xl border border-white/10 bg-neutral-950/90 px-6 py-5 text-white shadow-2xl backdrop-blur-xl">
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Button
                   variant="secondary"
                   draggable
-                  className="border border-white/20 !bg-white/10 !text-white hover:!bg-white/20"
+                  className="group relative flex h-14 w-14 items-center justify-center rounded-xl border border-white/15 !bg-white/5 !text-white shadow-sm transition hover:!bg-white/12"
                   onDragStart={(e) => {
                     e.dataTransfer?.setData("text/plain", "player");
                     setDragPreview(e, "player");
                   }}
                   onClick={() => handleSpawnClick("player")}
+                  aria-label="Add player"
                 >
-                  + PLAYER
+                  <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 transition group-hover:opacity-100 group-active:opacity-100" />
+                  <div className="relative flex items-center justify-center">
+                    <div
+                      className="absolute rounded-full size-10 border-[3px] border-black/70 shadow-lg "
+                      style={{ backgroundColor: COLORS.blue }}
+                    />
+                    <Plus className="relative z-10 size-4 text-white drop-shadow-md" />
+                  </div>
                 </Button>
                 <Button
                   variant="secondary"
                   draggable
-                  className="border border-white/20 !bg-white/10 !text-white hover:!bg-white/20"
+                  className="group relative flex h-14 w-14 items-center justify-center rounded-xl border border-white/15 !bg-white/5 !text-white shadow-sm transition hover:!bg-white/12"
                   onDragStart={(e) => {
                     e.dataTransfer?.setData("text/plain", "ball");
                     setDragPreview(e, "ball");
                   }}
                   onClick={() => handleSpawnClick("ball")}
+                  aria-label="Add ball"
                 >
-                  + BALL
+                  <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 transition group-hover:opacity-100 group-active:opacity-100" />
+                  <div className="relative flex items-center justify-center">
+                    <div
+                      className="absolute size-8 rounded-full border-[3px] border-black/70 shadow-lg "
+                      style={{ backgroundColor: COLORS.brownBall }}
+                    />
+                    <Plus className="relative z-10 size-3.5 text-white drop-shadow-md" />
+                  </div>
                 </Button>
               </div>
 
@@ -1451,7 +1467,7 @@ export default function HaxFootballBoard() {
                   aria-label="Select/Move"
                   className="rounded-lg px-3 py-2 text-white/70 transition data-[state=on]:!bg-cyan-500 data-[state=on]:!text-white data-[state=on]:shadow-lg"
                 >
-                  Select
+                  Selecionar
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="arrow-straight"
@@ -1475,14 +1491,14 @@ export default function HaxFootballBoard() {
                 variant="outline"
                 className="rounded-full border-white/30 px-4 text-sm uppercase tracking-wide text-white/70 transition data-[state=on]:!bg-white/20 data-[state=on]:!text-white"
               >
-                Dashed
+                Tracejado
               </Toggle>
             </div>
 
             <Separator className="my-4 bg-white/10" />
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-white/80">
-              <Label className="text-white/70">Arrow color</Label>
+              <Label className="text-white/70">Cor da seta</Label>
               <Toggle
                 pressed={currentArrowColor === "redLine"}
                 onPressedChange={(p) => p && setCurrentArrowColor("redLine")}
@@ -1513,7 +1529,7 @@ export default function HaxFootballBoard() {
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Board state JSON</DialogTitle>
+            <DialogTitle>Estado para exportação</DialogTitle>
           </DialogHeader>
           <pre className="max-h-[60vh] overflow-auto rounded bg-neutral-100 p-3 text-xs text-neutral-900">
             {JSON.stringify(state, null, 2)}
@@ -1524,10 +1540,10 @@ export default function HaxFootballBoard() {
                 navigator.clipboard.writeText(JSON.stringify(state))
               }
             >
-              Copy
+              Copiar
             </Button>
             <DialogClose asChild>
-              <Button variant="secondary">Close</Button>
+              <Button variant="secondary">Fechar</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
@@ -1537,11 +1553,11 @@ export default function HaxFootballBoard() {
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Import Board JSON</DialogTitle>
+            <DialogTitle>Importar JSON</DialogTitle>
           </DialogHeader>
           <textarea
             className="min-h-[40vh] w-full resize-y rounded border p-2 text-xs text-neutral-900"
-            placeholder="Paste JSON here…"
+            placeholder="Cole o JSON aqui..."
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
           />
@@ -1561,10 +1577,10 @@ export default function HaxFootballBoard() {
                 }
               }}
             >
-              Load
+              Carregar
             </Button>
             <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
+              <Button variant="secondary">Cancelar</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
@@ -1710,7 +1726,7 @@ export default function HaxFootballBoard() {
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-white/10 bg-neutral-900/50 px-3 py-2">
                   <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/55">
-                    Dashed
+                    Tracejado
                   </span>
                   <input
                     type="checkbox"
